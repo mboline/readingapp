@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'services/mongo_service.dart';
 
 void main() {
   runApp(const ReadingAssistantApp());
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _wordController = TextEditingController();
   final TextEditingController _phonogramController = TextEditingController();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final MongoService _mongoService = MongoService();
 
   Map<String, dynamic>? _allData;
   Map<String, dynamic>? _lookupData;
@@ -54,17 +56,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initData() async {
     try {
-      final String response = await rootBundle.loadString('assets/data/data.json');
-      setState(() {
-        _allData = json.decode(response);
-        _isLoading = false;
-      });
+      final data = await _mongoService.fetchAllData();
+      if (mounted) {
+        setState(() {
+          _allData = data;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = "Data file error. Check assets/data/data.json";
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = "Failed to load data: ${e.toString()}";
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _wordController.dispose();
+    _phonogramController.dispose();
+    _audioPlayer.dispose();
+    _mongoService.close();
+    super.dispose();
   }
 
   ButtonStyle _standardButtonStyle() {
